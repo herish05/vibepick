@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "VibePick",
+    "slug": "vibepick",
+    "version": "0.1.0",
+    "scheme": "vibepick",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "app.vibepick.mobile",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "VibePick reads photos and videos you choose so it can suggest songs that match them."
+      }
+    },
+    "android": {
+      "package": "app.vibepick.mobile"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-share-intent",
+        {
+          "iosActivationRules": {
+            "NSExtensionActivationSupportsImageWithMaxCount": 1,
+            "NSExtensionActivationSupportsMovieWithMaxCount": 1
+          },
+          "androidIntentFilters": ["image/*", "video/*"],
+          "androidMultiIntentFilters": ["image/*", "video/*"]
+        }
+      ],
+      "expo-secure-store",
+      "expo-status-bar",
+      "expo-web-browser",
+      "expo-audio"
+    ],
+    "extra": {
+      "apiUrl": "http://10.0.2.2:3000"
+    },
+    "experiments": { "typedRoutes": true }
+  }
+}

@@ -1,0 +1,394 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum MediaStatus {
+  UPLOADED
+  ANALYZING
+  READY
+  FAILED
+  DELETED
+}
+
+enum InteractionType {
+  recommendation_impression
+  song_open
+  song_preview_start
+  song_preview_complete
+  song_selected
+  song_saved
+  song_shared
+  song_skipped
+  song_rejected
+  feedback_positive
+  feedback_negative
+  search
+  filter_used
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  profile        UserProfile?
+  preference     UserPreference?
+  tasteVector    UserTasteVector?
+  instagram      InstagramConnection?
+  media          Media[]
+  recommendations Recommendation[]
+  interactions   UserInteraction[]
+  feedback       Feedback[]
+  favorites      Favorite[]
+  refreshTokens  RefreshToken[]
+  following      SocialConnection[] @relation("follower")
+  followers      SocialConnection[] @relation("followee")
+  assignments    ExperimentAssignment[]
+  auditLogs      AuditLog[]
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model UserProfile {
+  userId      String   @id
+  displayName String?
+  avatarUrl   String?
+  onboarded   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Explicit, user-declared preferences (onboarding + settings).
+model UserPreference {
+  userId          String   @id
+  languages       String[]
+  vibes           String[]
+  favoriteArtists String[]
+  allowMlUse      Boolean  @default(true)
+  retentionDays   Int      @default(30)
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Learned taste: long-term and short-term (time-decayed) affinity maps.
+model UserTasteVector {
+  userId     String   @id
+  longTerm   Json     @default("{}")
+  shortTerm  Json     @default("{}")
+  embedding  Float[]
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Media {
+  id           String      @id @default(uuid())
+  userId       String
+  type         MediaType
+  status       MediaStatus @default(UPLOADED)
+  storageKey   String
+  thumbKey     String?
+  mimeType     String
+  // Where the content came from: share_sheet | gallery | camera | other. Platform-agnostic.
+  origin       String      @default("gallery")
+  // Target platform/format: instagram_story | instagram_post | instagram_reel | whatsapp_status | youtube_short | other
+  contentTarget String     @default("instagram_story")
+  receivedAt   DateTime    @default(now())
+  sizeBytes    Int
+  width        Int?
+  height       Int?
+  createdAt    DateTime    @default(now())
+  expiresAt    DateTime?
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analysis     MediaAnalysis?
+  recommendations Recommendation[]
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+}
+
+model MediaAnalysis {
+  mediaId    String   @id
+  structured Json
+  vibe       Json
+  embedding  Float[]
+  provider   String
+  confidence Float
+  createdAt  DateTime @default(now())
+  media      Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+}
+
+model Artist {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  genres    String[]
+  popularity Float   @default(0.5)
+  songs     Song[]
+  albums    Album[]
+}
+
+model Album {
+  id       String  @id @default(uuid())
+  title    String
+  artistId String
+  year     Int?
+  artist   Artist  @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  songs    Song[]
+
+  @@index([artistId])
+}
+
+model Song {
+  id          String   @id @default(uuid())
+  title       String
+  artistId    String
+  albumId     String?
+  language    String
+  genres      String[]
+  popularity  Float    @default(0.5)
+  releaseYear Int?
+  previewUrl  String?
+  coverUrl    String?
+  externalId  String?  @unique
+  provider    String   @default("seed")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  artist      Artist   @relation(fields: [artistId], references: [id])
+  album       Album?   @relation(fields: [albumId], references: [id])
+  features    SongFeatures?
+  items       RecommendationItem[]
+  interactions UserInteraction[]
+  favorites   Favorite[]
+  trends      TrendSnapshot[]
+
+  @@index([language])
+  @@index([artistId])
+  @@index([active, popularity])
+}
+
+// "Song DNA": machine-readable features. `embedding` migrates to pgvector in Phase 3.
+model SongFeatures {
+  songId       String  @id
+  mood         Json
+  aesthetic    Json
+  occasions    String[]
+  tempo        Int
+  energy       Float
+  danceability Float
+  embedding    Float[]
+  version      Int     @default(1)
+  song         Song    @relation(fields: [songId], references: [id], onDelete: Cascade)
+}
+
+model Recommendation {
+  id           String   @id @default(uuid())
+  userId       String
+  mediaId      String?
+  sessionId    String?
+  contentType  String
+  context      Json
+  algorithm    String
+  weightsVersion String
+  // Time-to-selection metric: contentReceivedAt -> selectedAt
+  contentReceivedAt DateTime?
+  selectedAt   DateTime?
+  selectedSongId String?
+  timeToSelectionMs Int?
+  createdAt    DateTime @default(now())
+  latencyMs    Int?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media        Media?   @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+  items        RecommendationItem[]
+  interactions UserInteraction[]
+  feedback     Feedback[]
+
+  @@index([userId, createdAt])
+}
+
+model RecommendationItem {
+  id               String @id @default(uuid())
+  recommendationId String
+  songId           String
+  rank             Int
+  score            Float
+  category         String
+  source           String
+  signals          Json
+  reasons          String[]
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  song             Song @relation(fields: [songId], references: [id])
+
+  @@index([recommendationId])
+  @@index([songId])
+}
+
+model UserInteraction {
+  id               String          @id @default(uuid())
+  userId           String
+  songId           String?
+  recommendationId String?
+  contentId        String?
+  type             InteractionType
+  context          Json            @default("{}")
+  sessionId        String?
+  position         Int?
+  source           String?
+  createdAt        DateTime        @default(now())
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song             Song?           @relation(fields: [songId], references: [id], onDelete: SetNull)
+  recommendation   Recommendation? @relation(fields: [recommendationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([songId, type])
+  @@index([recommendationId])
+  @@index([type, createdAt])
+}
+
+model Feedback {
+  id               String   @id @default(uuid())
+  userId           String
+  recommendationId String
+  songId           String?
+  rating           String   // exactly | good | okay | not_my_vibe
+  reasons          String[]
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Favorite {
+  userId    String
+  songId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song      Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@id([userId, songId])
+}
+
+model TrendSnapshot {
+  id         String   @id @default(uuid())
+  songId     String
+  scope      String   @default("global") // global | language:punjabi | occasion:birthday
+  usage      Int
+  growthRate Float
+  velocity   Float
+  score      Float
+  capturedAt DateTime @default(now())
+  song       Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@index([scope, capturedAt])
+  @@index([songId, capturedAt])
+}
+
+model SocialConnection {
+  followerId String
+  followeeId String
+  createdAt  DateTime @default(now())
+  follower   User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followee   User     @relation("followee", fields: [followeeId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followeeId])
+}
+
+model InstagramConnection {
+  userId         String   @id
+  igUserId       String?
+  encryptedToken String
+  scopes         String[]
+  connectedAt    DateTime @default(now())
+  lastSyncAt     DateTime?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  userId    String?
+  name      String
+  props     Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([name, createdAt])
+}
+
+model ModelVersion {
+  id        String   @id @default(uuid())
+  name      String
+  version   String
+  kind      String   // ranker | embedding | vision
+  metrics   Json     @default("{}")
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([name, version])
+}
+
+model Experiment {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  description String?
+  variants    Json     // [{ "name": "A", "weight": 50, "config": {...} }]
+  active      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  assignments ExperimentAssignment[]
+}
+
+model ExperimentAssignment {
+  experimentId String
+  userId       String
+  variant      String
+  createdAt    DateTime @default(now())
+  experiment   Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([experimentId, userId])
+}
+
+model RankingConfig {
+  id        String   @id @default(uuid())
+  version   String   @unique
+  weights   Json
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+}
