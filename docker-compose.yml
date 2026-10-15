@@ -1,6 +1,7 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: vibepick
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vibepick}
@@ -15,6 +16,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports: ["${REDIS_PORT:-6379}:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -24,6 +26,7 @@ services:
 
   ml-service:
     build: ./ml-service
+    restart: unless-stopped
     environment:
       AI_PROVIDER: ${AI_PROVIDER:-heuristic}
       AI_API_KEY: ${AI_API_KEY:-}
@@ -31,6 +34,7 @@ services:
 
   backend:
     build: ./backend
+    restart: unless-stopped
     env_file: .env
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -48,6 +52,7 @@ services:
   worker:
     build: ./backend
     command: ["node", "dist/worker/index.js"]
+    restart: unless-stopped
     env_file: .env
     environment:
       NODE_ENV: ${NODE_ENV:-development}

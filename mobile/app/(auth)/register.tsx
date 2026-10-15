@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link } from 'expo-router';
-import { Button, ErrorBanner, Field, H1, Muted, Screen } from '@/ui/components';
+import { router } from 'expo-router';
+import { AuthHero, Button, Divider, ErrorBanner, Field, Screen } from '@/ui/components';
 import { api } from '@/lib/client';
 import { registerSchema, type RegisterForm } from '@/lib/validation';
 import { useSession } from '@/state/session';
+import { space } from '@/ui/theme';
 
 export default function Register() {
   const [error, setError] = useState<string | null>(null);
@@ -26,21 +28,62 @@ export default function Register() {
   });
 
   return (
-    <Screen>
-      <H1>Create your account</H1>
-      <Muted>No Instagram needed. You can connect it later, or never.</Muted>
-      {error ? <ErrorBanner message={error} /> : null}
-      <Controller control={control} name="email" render={({ field, fieldState }) => (
-        <Field label="Email" autoCapitalize="none" keyboardType="email-address" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} />
-      )} />
-      <Controller control={control} name="password" render={({ field, fieldState }) => (
-        <Field label="Password" secureTextEntry value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} />
-      )} />
-      <Controller control={control} name="confirm" render={({ field, fieldState }) => (
-        <Field label="Confirm password" secureTextEntry value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} />
-      )} />
-      <Button label="Sign up" onPress={() => void submit()} loading={formState.isSubmitting} />
-      <Link href="/(auth)/login" style={{ color: '#8B5CF6' }}>I already have an account</Link>
+    <Screen bottomInset>
+      <AuthHero title="Create your account" subtitle="No Instagram needed. Connect it later, or never." />
+      <View style={{ gap: space.md }}>
+        {error ? <ErrorBanner message={error} /> : null}
+        <Controller
+          control={control}
+          name="email"
+          render={({ field, fieldState }) => (
+            <Field
+              label="Email"
+              icon="mail-outline"
+              placeholder="you@example.com"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              value={field.value}
+              onChangeText={field.onChange}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="password"
+          render={({ field, fieldState }) => (
+            <Field
+              label="Password"
+              icon="lock-closed-outline"
+              placeholder="At least 8 characters"
+              secureTextEntry
+              value={field.value}
+              onChangeText={field.onChange}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+        <Controller
+          control={control}
+          name="confirm"
+          render={({ field, fieldState }) => (
+            <Field
+              label="Confirm password"
+              icon="shield-checkmark-outline"
+              placeholder="Repeat your password"
+              secureTextEntry
+              value={field.value}
+              onChangeText={field.onChange}
+              onSubmitEditing={() => void submit()}
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+        <Button label="Create account" onPress={() => void submit()} loading={formState.isSubmitting} />
+      </View>
+      <Divider label="Already have an account?" />
+      <Button label="Log in" variant="ghost" onPress={() => router.replace('/(auth)/login')} />
     </Screen>
   );
 }

@@ -53,10 +53,20 @@ export function createApiClient(opts: ApiClientOptions) {
   async function raw(path: string, init: RequestInit, token?: string): Promise<Response> {
     const headers = new Headers(init.headers);
     if (token) headers.set('Authorization', `Bearer ${token}`);
-    try {
-      return await doFetch(base + path, { ...init, headers });
-    } catch {
-      throw new ApiError(0, 'Cannot reach the server. Check your connection.');
+    const idempotent = !init.method || init.method === 'GET';
+    // Uploads get a longer window; a slow cold server should not look like an outage.
+    const timeoutMs = init.body instanceof FormData ? 60_000 : 20_000;
+    for (let attempt = 0; ; attempt++) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        return await doFetch(base + path, { ...init, headers, signal: ctrl.signal });
+      } catch {
+        if (idempotent && attempt < 1) continue;
+        throw new ApiError(0, 'Cannot reach the server. Check your internet connection and try again.');
+      } finally {
+        clearTimeout(timer);
+      }
     }
   }
 
@@ -90,7 +100,8 @@ export function createApiClient(opts: ApiClientOptions) {
     const body: unknown = await res.json().catch(() => ({}));
     if (!res.ok) {
       const b = body as { message?: string; error?: string };
-      throw new ApiError(res.status, b.message ?? 'Something went wrong', b.error);
+      const fallback = res.status >= 500 ? 'The server had a problem. Please try again in a moment.' : 'Something went wrong';
+      throw new ApiError(res.status, b.message ?? fallback, b.error);
     }
     return body as T;
   }

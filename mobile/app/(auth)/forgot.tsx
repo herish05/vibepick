@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link } from 'expo-router';
-import { Button, Field, H1, Muted, Screen } from '@/ui/components';
+import { router } from 'expo-router';
+import { AuthHero, Button, Card, Empty, Field, Muted, Screen } from '@/ui/components';
 import { api } from '@/lib/client';
 import { forgotSchema } from '@/lib/validation';
+import { space } from '@/ui/theme';
 
 export default function Forgot() {
   const [sent, setSent] = useState(false);
@@ -14,19 +16,35 @@ export default function Forgot() {
     setSent(true); // Same message whether or not the account exists.
   });
   return (
-    <Screen>
-      <H1>Reset password</H1>
+    <Screen bottomInset>
+      <AuthHero title="Reset password" subtitle="Enter your email and we will send you a link to get back in." />
       {sent ? (
-        <Muted>If that email has an account, reset instructions are on their way.</Muted>
+        <Card>
+          <Empty icon="mail-open-outline" title="Check your inbox" hint="If that email has an account, reset instructions are on their way." />
+        </Card>
       ) : (
-        <>
-          <Controller control={control} name="email" render={({ field, fieldState }) => (
-            <Field label="Email" autoCapitalize="none" keyboardType="email-address" value={field.value} onChangeText={field.onChange} error={fieldState.error?.message} />
-          )} />
+        <View style={{ gap: space.md }}>
+          <Controller
+            control={control}
+            name="email"
+            render={({ field, fieldState }) => (
+              <Field
+                label="Email"
+                icon="mail-outline"
+                placeholder="you@example.com"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={field.value}
+                onChangeText={field.onChange}
+                error={fieldState.error?.message}
+              />
+            )}
+          />
           <Button label="Send reset link" onPress={() => void submit()} loading={formState.isSubmitting} />
-        </>
+          <Muted>Emails can take a few minutes to arrive.</Muted>
+        </View>
       )}
-      <Link href="/(auth)/login" style={{ color: '#8B5CF6' }}>Back to login</Link>
+      <Button label="Back to log in" variant="ghost" icon="arrow-back" onPress={() => router.replace('/(auth)/login')} />
     </Screen>
   );
 }

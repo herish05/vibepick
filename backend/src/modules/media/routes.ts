@@ -59,7 +59,10 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
     return result;
   }
 
-  app.post('/media', { ...auth, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req, reply) => {
+  app.post(
+    '/media',
+    { ...auth, bodyLimit: (env.MAX_UPLOAD_MB + 1) * 1024 * 1024, config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (req, reply) => {
     const file = await req.file();
     if (!file) throw badRequest('Expected a multipart file upload');
     const fields = fieldsSchema.parse({
@@ -102,7 +105,8 @@ export async function mediaRoutes(app: FastifyInstance): Promise<void> {
       receivedAt: media.receivedAt,
       analysis: { structured: analysis.structured, vibe: analysis.vibe, confidence: analysis.confidence, provider: analysis.provider },
     });
-  });
+    },
+  );
 
   app.get('/media/:id', auth, async (req) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);

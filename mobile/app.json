@@ -5,6 +5,8 @@
     "version": "0.1.0",
     "scheme": "vibepick",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "backgroundColor": "#09090F",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
@@ -15,7 +17,12 @@
       }
     },
     "android": {
-      "package": "app.vibepick.mobile"
+      "package": "app.vibepick.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/adaptive-icon-mono.png",
+        "backgroundColor": "#9333EA"
+      }
     },
     "plugins": [
       "expo-router",
@@ -26,18 +33,34 @@
             "NSExtensionActivationSupportsImageWithMaxCount": 1,
             "NSExtensionActivationSupportsMovieWithMaxCount": 1
           },
-          "androidIntentFilters": ["image/*", "video/*"],
-          "androidMultiIntentFilters": ["image/*", "video/*"]
+          "androidIntentFilters": [
+            "image/*",
+            "video/*"
+          ],
+          "androidMultiIntentFilters": [
+            "image/*",
+            "video/*"
+          ]
         }
       ],
       "expo-secure-store",
       "expo-status-bar",
       "expo-web-browser",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "backgroundColor": "#09090F"
+        }
+      ]
     ],
     "extra": {
-      "apiUrl": "http://10.0.2.2:3000"
+      "apiUrl": "https://vibepick.duckdns.org"
     },
-    "experiments": { "typedRoutes": true }
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

@@ -1,9 +1,9 @@
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Card, ErrorBanner, H1, Muted, Row, Screen, Skeleton } from '@/ui/components';
+import { Text, View } from 'react-native';
+import { Button, Card, Cover, ErrorBanner, H1, Muted, Pill, Row, Screen, ScreenHeader, Skeleton } from '@/ui/components';
 import { api } from '@/lib/client';
-import { Text } from 'react-native';
-import { colors } from '@/ui/theme';
+import { colors, space } from '@/ui/theme';
 
 export default function SongDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,23 +19,36 @@ export default function SongDetails() {
   }
 
   return (
-    <Screen>
-      <Button label="Back" variant="ghost" onPress={() => router.back()} />
-      {song.isLoading ? <Skeleton height={140} /> : null}
+    <Screen bottomInset>
+      <ScreenHeader title="Song" onBack={() => router.back()} />
+      {song.isLoading ? <Skeleton height={260} /> : null}
       {song.error ? <ErrorBanner message="Could not load song" onRetry={() => void song.refetch()} /> : null}
       {song.data ? (
-        <Card>
-          <H1>{song.data.title}</H1>
-          <Text style={{ color: colors.text, fontSize: 16 }}>{song.data.artist}</Text>
-          <Muted>
-            {song.data.language}
-            {song.data.releaseYear ? ` · ${song.data.releaseYear}` : ''}
-          </Muted>
-          <Muted>{song.data.genres.join(', ')}</Muted>
-          <Row>
-            <Button label={isFav ? 'Remove from favorites' : 'Add to favorites'} variant="ghost" onPress={() => void toggleFav()} />
-          </Row>
-        </Card>
+        <>
+          <View style={{ alignItems: 'center', gap: space.md, paddingVertical: space.md }}>
+            <Cover seed={song.data.title} size={180} uri={song.data.coverUrl} />
+            <View style={{ alignItems: 'center', gap: 4 }}>
+              <H1>{song.data.title}</H1>
+              <Text style={{ color: colors.muted, fontSize: 17 }}>{song.data.artist}</Text>
+            </View>
+          </View>
+          <Card>
+            <Row>
+              <Pill label={song.data.language} tone="muted" icon="language-outline" />
+              {song.data.releaseYear ? <Pill label={String(song.data.releaseYear)} tone="muted" icon="calendar-outline" /> : null}
+              {song.data.genres.map((g) => (
+                <Pill key={g} label={g} />
+              ))}
+            </Row>
+            {!song.data.previewUrl ? <Muted>No audio preview is available for this track.</Muted> : null}
+          </Card>
+          <Button
+            label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+            icon={isFav ? 'heart' : 'heart-outline'}
+            variant={isFav ? 'ghost' : 'primary'}
+            onPress={() => void toggleFav()}
+          />
+        </>
       ) : null}
     </Screen>
   );

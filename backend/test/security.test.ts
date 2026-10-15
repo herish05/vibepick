@@ -19,7 +19,9 @@ describe('crypto primitives', () => {
     const enc = encrypt('ig-access-token', key);
     expect(enc).not.toContain('ig-access-token');
     expect(decrypt(enc, key)).toBe('ig-access-token');
-    const tampered = enc.slice(0, -2) + (enc.endsWith('A') ? 'B' : 'A') + enc.slice(-1);
+    const raw = Buffer.from(enc, 'base64');
+    raw[raw.length - 1] = raw[raw.length - 1]! ^ 0xff;
+    const tampered = raw.toString('base64');
     expect(() => decrypt(tampered, key)).toThrow();
     expect(() => decrypt(enc, randomBytes(32).toString('base64'))).toThrow();
   });
